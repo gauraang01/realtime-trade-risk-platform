@@ -4,10 +4,10 @@ A teaching project: a toy bank trading desk's live trade blotter and counterpart
 
 ## Running it
 
-Kafka and Kafka UI are the only services so far:
+The `kafka` profile runs Kafka and Kafka UI. The `cdc` profile adds Postgres and Debezium:
 
 ```bash
-docker compose --profile kafka up -d
+docker compose --profile cdc up -d
 scripts/k kafka-topics --list
 ```
 
@@ -29,6 +29,30 @@ python3 -m venv .venv
 .venv/bin/pip install -r simulators/requirements.txt
 .venv/bin/python simulators/prices.py
 .venv/bin/python simulators/trades.py
+```
+
+### Reference data
+
+Create the compacted topics once, then register the connector. It takes a snapshot of the tables and then follows every change:
+
+```bash
+for t in instruments counterparties books; do
+  scripts/k kafka-topics --create --topic refdata.public.$t \
+    --partitions 1 --replication-factor 1 \
+    --config cleanup.policy=compact \
+    --config segment.ms=60000 \
+    --config min.cleanable.dirty.ratio=0.01
+done
+
+curl -s -X POST -H 'Content-Type: application/json' \
+  localhost:8083/connectors -d @debezium/refdata-connector.json
+curl -s localhost:8083/connectors/refdata/status
+```
+
+To view a topic's change events, one per line:
+
+```bash
+.venv/bin/python scripts/cdc_tail.py counterparties
 ```
 
 ## Architecture (target)

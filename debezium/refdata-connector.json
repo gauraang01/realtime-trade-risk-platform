@@ -1,0 +1,24 @@
+{
+  "name": "refdata",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "debezium",
+    "database.password": "debezium",
+    "database.dbname": "refdata",
+    "topic.prefix": "refdata",
+    "table.include.list": "public.instruments,public.counterparties,public.books",
+    "plugin.name": "pgoutput",
+    "publication.name": "refdata_pub",
+    "publication.autocreate.mode": "disabled",
+    "slot.name": "debezium_refdata",
+    "snapshot.mode": "initial",
+    "decimal.handling.mode": "string",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+  }
+}

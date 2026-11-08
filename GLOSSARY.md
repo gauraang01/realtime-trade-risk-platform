@@ -111,6 +111,23 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Batching (`linger.ms`)**: the producer waits briefly to group messages into one request, trading a little latency for throughput.
 - **Delivery callback**: a function that reports whether each message reached the broker. `produce()` alone only puts it in a local buffer.
 
+### CDC
+- **Logical decoding**: Postgres turning its WAL into row-level changes. It needs `wal_level=logical`.
+- **`pgoutput`**: the logical decoding plugin built into Postgres.
+- **Publication**: the list of tables whose changes Postgres sends to WAL readers.
+- **Replication slot**: a bookmark Postgres keeps for a WAL reader. WAL after it can't be removed, so an abandoned slot can fill the disk.
+- **LSN (log sequence number)**: a position in the WAL.
+- **Replica identity**: how much of the old row Postgres writes to the WAL. `FULL` writes all of it.
+- **CDC snapshot**: reading every existing row once (`op=r`) before following the WAL. It only runs when there's no saved position.
+- **Debezium envelope**: the message shape holding `before`, `after`, `op` (r, c, u, d), `source` and `ts_ms`.
+- **Kafka Connect**: a framework that moves data in and out of Kafka, using plugins such as Debezium.
+- **Connect worker / connector / task**: the host process, the job configuration, and the thread doing the reading.
+- **Connect offsets**: a source connector's saved position, stored in a Kafka topic (`connect-offsets` here).
+- **`decimal.handling.mode`**: how Debezium writes numeric columns. `precise` is base64 bytes, `double` is floating point, `string` is exact and readable.
+- **Retraction**: taking an old value back out of a result before adding the new one.
+- **`delete.retention.ms`**: how long compaction keeps a tombstone, so slow consumers can still see the delete (24 hours by default).
+- **`min.cleanable.dirty.ratio`**: how much of a log must be uncompacted before the cleaner runs.
+
 ### Time
 - **Event time**: when something actually happened, as opposed to when a system processed it.
 - **Trade time**: when a trade was first booked. Later amendments keep it unchanged.
