@@ -142,6 +142,14 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Metadata column**: a table column that exposes details of the source message, such as its Kafka partition or offset.
 - **Continuous query**: a query that never finishes and keeps updating its result as data arrives.
 - **`+I` / `-U` / `+U`**: changelog row types: a new row, the old value being withdrawn, and the new value replacing it.
+- **`-D`**: changelog row type meaning this row is deleted.
+- **Append stream**: a stream where every message is a new fact and nothing is taken back.
+- **Changelog stream**: a stream of instructions (insert, withdraw, update, delete) for keeping a table correct.
+- **Deduplication (`ROW_NUMBER`, `rn = 1`)**: Flink's pattern for keeping one best row per key, emitting a change only when a better row arrives.
+- **`upsert-kafka`**: the connector that writes a changelog as key/value messages, and reads a topic as "the newest message for a key replaces the older ones".
+- **`PRIMARY KEY ... NOT ENFORCED`**: names the key column for Flink without Flink checking that it's unique.
+- **Bounded source**: a source that stops at a fixed point, so its job finishes. `scan.bounded.mode` makes a Kafka source bounded.
+- **Late message**: a message that arrives after a newer one for the same key.
 - **State backend**: where a running job keeps its state. The default `hashmap` uses the Java heap; `rocksdb` uses managed memory and disk.
 - **RocksDB**: an embedded key-value store, used for state too large or too long-lived for the Java heap.
 - **Task heap**: the Java heap memory for a job's own objects, including state under the default `hashmap` backend.

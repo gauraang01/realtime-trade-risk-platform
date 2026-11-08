@@ -67,6 +67,16 @@ docker exec -it jobmanager ./bin/sql-client.sh
 
 The Flink UI is at http://localhost:8081.
 
+The saved job in `flink/sql/latest_trades.sql` publishes one current row per trade. Create its output topic once, then submit the job. Submit it again after restarting the stack:
+
+```bash
+scripts/k kafka-topics --create --topic trades_latest --partitions 3 --replication-factor 1 \
+  --config cleanup.policy=compact --config segment.ms=60000 --config min.cleanable.dirty.ratio=0.01
+docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/latest_trades.sql 2>&1 | grep -E 'Job ID|ERROR'
+```
+
+To test late and duplicate messages, run `.venv/bin/python simulators/break_versions.py`.
+
 ## Architecture (target)
 
 ```

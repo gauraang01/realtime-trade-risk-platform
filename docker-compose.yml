@@ -124,6 +124,8 @@ services:
         execution.checkpointing.dir: file:///opt/flink/checkpoints
     volumes:
       - flink-checkpoints:/opt/flink/checkpoints
+      # The SQL client runs here, so saved jobs only need to be visible here.
+      - ./flink/sql:/opt/flink/sql:ro
     # Above Flink's 768m because the SQL client runs in this container too.
     mem_limit: 1024m
     depends_on:
