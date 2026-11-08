@@ -4,7 +4,7 @@ A teaching project: a toy bank trading desk's live trade blotter and counterpart
 
 ## Running it
 
-The `kafka` profile runs Kafka and Kafka UI. The `cdc` profile adds Postgres and Debezium:
+The `kafka` profile runs Kafka and Kafka UI. The `cdc` profile adds Postgres and Debezium. The `flink` profile adds a Flink cluster to Kafka and Kafka UI (see [Stream processing](#stream-processing)):
 
 ```bash
 docker compose --profile cdc up -d
@@ -54,6 +54,18 @@ To view a topic's change events, one per line:
 ```bash
 .venv/bin/python scripts/cdc_tail.py counterparties
 ```
+
+### Stream processing
+
+Start everything, then open the Flink SQL client, which runs one statement at a time:
+
+```bash
+docker compose --profile cdc --profile flink up -d --build
+curl -s localhost:8081/overview
+docker exec -it jobmanager ./bin/sql-client.sh
+```
+
+The Flink UI is at http://localhost:8081.
 
 ## Architecture (target)
 

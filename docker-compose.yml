@@ -4,7 +4,7 @@ services:
   kafka:
     image: apache/kafka:4.3.2
     container_name: kafka
-    profiles: ["kafka", "cdc"]
+    profiles: ["kafka", "cdc", "flink"]
     ports:
       - "9094:9094"
     environment:
@@ -48,7 +48,7 @@ services:
   kafka-ui:
     image: kafbat/kafka-ui:v1.5.0
     container_name: kafka-ui
-    profiles: ["kafka", "cdc"]
+    profiles: ["kafka", "cdc", "flink"]
     ports:
       - "8080:8080"
     environment:
@@ -108,6 +108,47 @@ services:
       postgres:
         condition: service_healthy
 
+  jobmanager:
+    build: ./flink
+    image: trade-risk-flink:2.2.1
+    container_name: jobmanager
+    profiles: ["flink"]
+    command: jobmanager
+    ports:
+      - "8081:8081"  # Flink web UI and REST API
+    environment:
+      # Appended to Flink's config.yaml when the container starts.
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        jobmanager.memory.process.size: 768m
+        execution.checkpointing.dir: file:///opt/flink/checkpoints
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+    # Above Flink's 768m because the SQL client runs in this container too.
+    mem_limit: 1024m
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  taskmanager:
+    build: ./flink
+    image: trade-risk-flink:2.2.1
+    container_name: taskmanager
+    profiles: ["flink"]
+    command: taskmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        taskmanager.memory.process.size: 1280m
+        taskmanager.numberOfTaskSlots: 2
+        execution.checkpointing.dir: file:///opt/flink/checkpoints
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+    mem_limit: 1536m
+    depends_on:
+      - jobmanager
+
 volumes:
   kafka-data:
   postgres-data:
+  flink-checkpoints:

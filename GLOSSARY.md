@@ -128,6 +128,31 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **`delete.retention.ms`**: how long compaction keeps a tombstone, so slow consumers can still see the delete (24 hours by default).
 - **`min.cleanable.dirty.ratio`**: how much of a log must be uncompacted before the cleaner runs.
 
+### Flink
+- **JobManager**: the Flink process that plans jobs, assigns work and coordinates recovery. It doesn't process records.
+- **TaskManager**: the Flink worker process that processes records and holds running state.
+- **Task slot**: one share of a TaskManager's capacity. A job can't start without enough free slots.
+- **Slot sharing**: different operators of the same job running in one slot. Separate jobs never share a slot.
+- **Parallelism**: how many copies of an operator run at once.
+- **Subtask**: one of those parallel copies.
+- **Operator chaining**: running consecutive operators in one thread so records don't need to be handed between them.
+- **Hash exchange**: sending records between operators by key, so the same key always reaches the same subtask. `GROUP BY` needs it.
+- **Connector**: the plugin that lets Flink read or write an outside system. It must be a JAR in `lib/`.
+- **Dynamic table**: Flink's view of a stream as a table whose contents keep changing. It stores no data itself.
+- **Metadata column**: a table column that exposes details of the source message, such as its Kafka partition or offset.
+- **Continuous query**: a query that never finishes and keeps updating its result as data arrives.
+- **`+I` / `-U` / `+U`**: changelog row types: a new row, the old value being withdrawn, and the new value replacing it.
+- **State backend**: where a running job keeps its state. The default `hashmap` uses the Java heap; `rocksdb` uses managed memory and disk.
+- **RocksDB**: an embedded key-value store, used for state too large or too long-lived for the Java heap.
+- **Task heap**: the Java heap memory for a job's own objects, including state under the default `hashmap` backend.
+- **Managed memory**: memory Flink controls outside the Java heap, used by RocksDB and batch operators.
+- **State TTL**: a time limit after which unused state is deleted, so state doesn't grow forever.
+- **Garbage collection pause**: time when Java stops or slows a program to reclaim unused objects. Large heaps make pauses worse.
+- **Checkpoint storage**: the durable location for checkpoints. It must outlive any single process.
+- **Exactly-once (state)**: after a recovery, each record has affected Flink's state once. End-to-end exactly-once also needs a transactional or idempotent sink.
+- **Heartbeat timeout**: how long the JobManager waits to hear from a TaskManager before declaring it dead (50 s by default).
+- **Restart strategy**: what Flink does when a job fails. With checkpointing off, the default is not to restart.
+
 ### Time
 - **Event time**: when something actually happened, as opposed to when a system processed it.
 - **Trade time**: when a trade was first booked. Later amendments keep it unchanged.
