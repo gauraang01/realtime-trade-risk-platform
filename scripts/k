@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Run a Kafka CLI tool inside the broker container.
+# Usage: scripts/k kafka-topics --list
+#
+# A terminal gets -it so Ctrl-C reaches the tool. Without -t, Ctrl-C stops only
+# the local docker client and leaves the tool running in the container.
+# Piped input gets -i alone, because -t needs a real terminal.
+set -euo pipefail
+
+tool=$1
+shift
+
+flags=-i
+if [ -t 0 ]; then
+  flags=-it
+fi
+
+exec docker exec "$flags" kafka "/opt/kafka/bin/$tool.sh" --bootstrap-server kafka:9092 "$@"

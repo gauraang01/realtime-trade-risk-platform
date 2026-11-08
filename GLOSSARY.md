@@ -81,3 +81,29 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Iceberg**: an open table format that adds tables, snapshots and history on top of files in object storage.
 - **MinIO**: an S3-compatible object store that runs locally.
 - **REST catalog**: a service that tracks which Iceberg tables exist and their current state.
+
+### Kafka
+- **Partition**: one ordered log within a topic. Kafka guarantees order only within a partition.
+- **Offset**: a message's position in its partition. Offsets are never reused or changed.
+- **Broker**: the Kafka server that stores partitions and serves reads and writes.
+- **Controller**: the Kafka role that manages cluster metadata, such as topics and partition leaders.
+- **KRaft**: Kafka's built-in metadata system, which replaced ZooKeeper.
+- **Bootstrap server**: the first address a client contacts, only to discover the cluster.
+- **Advertised listener**: the address a broker tells clients to use for all later connections.
+- **Replication factor**: how many copies of each partition the cluster keeps.
+- **ISR (in-sync replicas)**: the copies of a partition that are fully caught up with its leader.
+- **Consumer group**: a team of consumers sharing a topic's work. Each partition has one reader per group.
+- **Committed offset**: a group's saved position in a partition, stored in `__consumer_offsets`.
+- **Log-end offset**: the position where the next message in a partition will be written.
+- **Consumer lag**: log-end offset minus committed offset, or how far behind a group is.
+- **`auto.offset.reset`**: where a group starts when it has no saved offset. It's ignored once one exists.
+- **Rebalance**: redistributing a group's partitions when consumers join or leave.
+- **`session.timeout.ms`**: how long the broker waits without heartbeats before declaring a consumer dead (45 s by default).
+- **At-least-once delivery**: no messages are lost, but some may be processed twice after a failure.
+- **Retention**: deleting messages once they pass an age or size limit.
+- **Segment**: one file of a partition's log on disk. Only closed segments get cleaned.
+- **Active segment**: the segment currently being written to. It's never compacted.
+- **Tombstone**: a message with a key and a null value, which tells compaction to delete that key.
+
+### Docker
+- **Compose profile**: a label that lets you start only a chosen group of services.

@@ -2,7 +2,16 @@
 
 A teaching project: a toy bank trading desk's live trade blotter and counterparty credit panel, built locally with Docker Compose, one sprint at a time.
 
-Nothing is runnable yet. The stack starts in Sprint 1.
+## Running it
+
+Kafka and Kafka UI are the only services so far:
+
+```bash
+docker compose --profile kafka up -d
+scripts/k kafka-topics --list
+```
+
+Kafka UI is at http://localhost:8080.
 
 ## Architecture (target)
 
@@ -32,4 +41,3 @@ risk_results                                  └─► FastAPI ──► Browse
 ## Where to look
 
 - [GLOSSARY.md](GLOSSARY.md): business and technical terms
-- [LEARNING_LOG.md](LEARNING_LOG.md): lessons from each sprint
