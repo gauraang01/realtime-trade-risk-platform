@@ -13,6 +13,24 @@ scripts/k kafka-topics --list
 
 Kafka UI is at http://localhost:8080.
 
+Create the topics once (topic auto-creation is off):
+
+```bash
+scripts/k kafka-topics --create --topic trades --partitions 3 --replication-factor 1 \
+  --config cleanup.policy=delete --config retention.ms=604800000
+scripts/k kafka-topics --create --topic prices --partitions 3 --replication-factor 1 \
+  --config cleanup.policy=delete --config retention.ms=86400000
+```
+
+Run the simulators, each in its own terminal, with prices first:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r simulators/requirements.txt
+.venv/bin/python simulators/prices.py
+.venv/bin/python simulators/trades.py
+```
+
 ## Architecture (target)
 
 ```

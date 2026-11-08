@@ -104,6 +104,19 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Segment**: one file of a partition's log on disk. Only closed segments get cleaned.
 - **Active segment**: the segment currently being written to. It's never compacted.
 - **Tombstone**: a message with a key and a null value, which tells compaction to delete that key.
+- **Partitioner**: the client code that turns a key into a partition number. Java clients use murmur2 by default; librdkafka clients use CRC32 unless configured otherwise.
+- **Key skew**: some partitions get more traffic than others because of how keys hash or how busy each key is.
+- **`acks`**: how many replicas must have a message before the broker confirms it. `all` means every in-sync replica.
+- **Idempotent producer**: a producer whose retries can't create duplicates or reorder messages, because the broker tracks sequence numbers.
+- **Batching (`linger.ms`)**: the producer waits briefly to group messages into one request, trading a little latency for throughput.
+- **Delivery callback**: a function that reports whether each message reached the broker. `produce()` alone only puts it in a local buffer.
+
+### Time
+- **Event time**: when something actually happened, as opposed to when a system processed it.
+- **Trade time**: when a trade was first booked. Later amendments keep it unchanged.
+
+### Simulation
+- **Random walk**: a series where each value is the previous one plus a random step, a simple stand-in for price movement.
 
 ### Docker
 - **Compose profile**: a label that lets you start only a chosen group of services.
