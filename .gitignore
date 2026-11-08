@@ -1,0 +1,13 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local secrets
+.env
+
+# Docker volume data kept on disk
+data/
+
+# macOS
+.DS_Store
