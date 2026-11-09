@@ -36,6 +36,7 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Flash P&L**: a fast, unverified estimate, available during or just after the trading day. This dashboard shows flash P&L.
 - **Official P&L**: the checked, signed-off number, usually produced the next day. It goes into the books and regulatory reports.
 - **Product control**: the finance team that verifies P&L independently of the traders.
+- **P&L explain**: breaking a day's P&L into its causes, such as price moves and new trades, so the number can be justified.
 
 ### Risk
 - **Daily volatility**: the typical size of a one-day percentage price move (one standard deviation). 2% means a typical day moves about 2%.
@@ -54,6 +55,8 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Pre-trade limit check**: a check that can block a trade before it is booked. It must be synchronous, unlike this project's after-the-fact alert.
 - **Post-trade monitoring**: watching exposure after trades are booked and alerting people, which allows a few seconds of delay.
 - **Valid-from date**: a business column saying when a reference value took effect, independent of when a system recorded it.
+- **Audit trail**: a kept record of past values, so a bank can show regulators what it knew and when.
+- **Trader blotter snapshot**: the full current list of trades shown when a screen first opens, before live updates begin.
 
 ## Technical terms
 
@@ -209,6 +212,31 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Level vs edge trigger**: a level trigger acts for as long as a condition holds; an edge trigger acts once, when it changes.
 - **`LAG`**: a SQL function that returns a column's value from the previous row for the same key.
 - **Aggregate before fan-out**: totalling slow-changing data first, so a fast-changing join touches a few rows instead of every record.
+
+### Serving
+- **Serving layer**: the stores that answer questions from screens and people, fed from the stream.
+- **Part (ClickHouse)**: an immutable batch of rows on disk; every insert creates one.
+- **Merge (ClickHouse)**: background work that combines parts into larger ones, at a time ClickHouse chooses.
+- **`MergeTree`**: ClickHouse's basic table engine, which keeps every row inserted.
+- **`ReplacingMergeTree`**: a table engine that keeps one row per sorting key during merges.
+- **Version column**: the column that decides which row a `ReplacingMergeTree` keeps; the highest value wins.
+- **`FINAL`**: a query modifier that removes outdated rows at read time, for merges that haven't happened yet.
+- **`ORDER BY` (ClickHouse table)**: the on-disk sort order, which in a `ReplacingMergeTree` also defines what counts as the same row.
+- **Kafka table engine**: a ClickHouse table that is really a Kafka consumer and stores nothing.
+- **Materialized view (ClickHouse)**: an insert trigger that transforms each new batch and writes it to another table.
+- **Virtual column**: metadata such as `_offset` that ClickHouse exposes for each Kafka message.
+- **`argMax(a, b)`**: an aggregate that returns `a` from the row with the largest `b`.
+- **Point-in-time query**: asking what a value was at a past moment, which needs every old value kept.
+- **`TTL` (ClickHouse)**: a rule that deletes rows automatically once they reach a given age.
+- **Redis hash**: one Redis key holding many field-value pairs, here one field per trade.
+- **`HGETALL`**: a Redis command that returns every field in a hash, used here to read a full snapshot.
+- **`noeviction`**: a Redis setting that rejects writes when memory is full instead of deleting keys.
+- **Cache vs source of truth**: a cache can be wiped and rebuilt, and the source of truth, here Kafka, can't be lost.
+- **Redis pipeline**: sending many commands in one network round trip, which makes bulk writes far faster.
+- **`HSCAN`**: a Redis command that reads a hash in chunks, so a large read doesn't block other clients.
+- **Idempotent write**: a write that leaves the same result however many times it's applied.
+- **Page cache**: file data the operating system keeps in memory; it counts in `docker stats` but can be reclaimed.
+- **Serving lag**: how far a serving store is behind the stream, here 1-8 seconds for ClickHouse because it writes in batches.
 
 ### Simulation
 - **Random walk**: a series where each value is the previous one plus a random step, a simple stand-in for price movement.

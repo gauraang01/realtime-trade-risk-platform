@@ -139,6 +139,37 @@ Run `.venv/bin/python scripts/exposure_check.py` to see exposure against limits,
 
 Each saved job uses one of the eight task slots. `flink/sql/fanout_demo.sql` measures the output of an unconflated price join, and `.venv/bin/python scripts/topic_rate.py <topic>` measures a topic's message rate.
 
+### Serving
+
+The `serving` profile runs ClickHouse (query page at http://localhost:8123/play, user `app`, password `app`) and Redis. If Flink jobs are running, start only these two so they aren't disturbed:
+
+```bash
+docker compose --profile cdc --profile flink --profile serving up -d --no-deps clickhouse redis
+```
+
+Create the ClickHouse tables once. They read `counterparty_view` and `trade_view` directly, so they need no Flink job:
+
+```bash
+docker exec -i clickhouse clickhouse-client -u app --password app --multiquery < clickhouse/counterparty.sql
+docker exec -i clickhouse clickhouse-client -u app --password app --multiquery < clickhouse/trades.sql
+```
+
+Always use `FINAL` on the `_current` tables, or rows waiting to be merged are counted more than once:
+
+```bash
+docker exec clickhouse clickhouse-client -u app --password app -q "SELECT book_id, sum(mtm) FROM serving.trade_current FINAL GROUP BY book_id ORDER BY book_id"
+```
+
+`clickhouse/break_final.sql` demonstrates what goes wrong without `FINAL` or a version column.
+
+Start the Redis worker. It rebuilds Redis from Kafka every time it starts, and holds one hash per view topic:
+
+```bash
+.venv/bin/pip install -r gateway/requirements.txt
+.venv/bin/python gateway/redis_sink.py
+docker exec redis redis-cli hget counterparty_view CP-1
+```
+
 ## Architecture (target)
 
 ```
@@ -159,7 +190,7 @@ risk_results                                  └─► FastAPI ──► Browse
 | `debezium/` | CDC connector config | 3 |
 | `flink/` | Flink SQL and PyFlink jobs | 4–9 |
 | `clickhouse/` | Serving tables and views | 10 |
-| `gateway/` | FastAPI WebSocket gateway | 11 |
+| `gateway/` | Redis worker and FastAPI WebSocket gateway | 10, 11 |
 | `ui/` | HTML/JS grid | 11 |
 | `spark/` | Spark comparison and Iceberg sink | 12 |
 | `scripts/` | Reconciliation and helper scripts | 13 |
