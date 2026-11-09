@@ -170,6 +170,31 @@ Start the Redis worker. It rebuilds Redis from Kafka every time it starts, and h
 docker exec redis redis-cli hget counterparty_view CP-1
 ```
 
+### Live screens
+
+`gateway/app.py` needs `gateway/redis_sink.py` and the Flink jobs running. It sends each browser a snapshot from Redis, then numbered changes from Kafka once a second:
+
+```bash
+.venv/bin/python gateway/app.py
+```
+
+| Screen | Address |
+|---|---|
+| Desk blotter and counterparty panel | http://localhost:8000/?token=desk |
+| One fund's own trades, from its side | http://localhost:8000/?token=fund-cp1 (`cp1` to `cp5`) |
+
+`CONFLATE_SECONDS=5 .venv/bin/python gateway/app.py` sends less often. `WS_COMPRESSION=1` turns on WebSocket compression. The tokens are a stand-in for a real login.
+
+To test the protocol without a browser, and compare the result with a fresh snapshot:
+
+```bash
+.venv/bin/python scripts/ws_check.py --seconds 30
+.venv/bin/python scripts/ws_check.py --drop-after 5 --drops 1
+.venv/bin/python scripts/ws_check.py --read-delay 4 --seconds 40
+```
+
+The first is a normal client, the second loses a frame and resyncs, and the third acts like a slow client. The "Drop next delta" button on the page does the same as the second.
+
 ## Architecture (target)
 
 ```
@@ -178,7 +203,7 @@ Postgres ─ Debezium ─┐ reference data
 Simulators ──────► KAFKA ──► FLINK ──► KAFKA ─┬─► ClickHouse  (history)
 trades, prices,    inputs    logic    outputs ├─► Redis       (latest snapshot)
 risk_results                                  └─► FastAPI ──► Browser grid
-                                                  (reads snapshot from Redis)
+                                                  (snapshot from Redis, changes from Kafka)
 ```
 
 ## Repo layout

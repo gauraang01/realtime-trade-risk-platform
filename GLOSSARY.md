@@ -57,6 +57,9 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Valid-from date**: a business column saying when a reference value took effect, independent of when a system recorded it.
 - **Audit trail**: a kept record of past values, so a bank can show regulators what it knew and when.
 - **Trader blotter snapshot**: the full current list of trades shown when a screen first opens, before live updates begin.
+- **Entitlements**: the rules for who may see which data. A client should see only its own trades.
+- **Client view**: the same trade seen from the client's side, so the side and the P&L sign are reversed.
+- **Credit line used**: how much of its credit limit a counterparty has used, shown as a percentage.
 
 ## Technical terms
 
@@ -237,6 +240,24 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Idempotent write**: a write that leaves the same result however many times it's applied.
 - **Page cache**: file data the operating system keeps in memory; it counts in `docker stats` but can be reclaimed.
 - **Serving lag**: how far a serving store is behind the stream, here 1-8 seconds for ClickHouse because it writes in batches.
+
+### Gateway and UI
+- **Gateway**: the server between the data pipeline and the screens, which decides what each screen receives and how fast.
+- **FastAPI**: a Python web framework, used here for the page and the WebSocket endpoint.
+- **uvicorn**: the server process that runs a FastAPI app.
+- **Event loop**: one thread that switches between many waiting tasks, so client state needs no locks but one slow step delays everyone.
+- **Delta**: a message holding only the rows that changed since the last message.
+- **Full-state delta**: a delta that carries whole rows, so applying one twice is harmless and a later one repairs an earlier loss.
+- **Resync**: a client discarding its state and asking for a new snapshot after spotting a gap.
+- **Self-healing stream**: a stream that re-sends every row often, so a lost update is overwritten soon even without a resync.
+- **Slow consumer**: a client that can't read as fast as the server sends.
+- **Back-pressure**: a slow receiver making the sender wait, instead of letting data pile up.
+- **Application-level ack**: a client message saying it has finished a frame, so the server sends the next one only then.
+- **Viewport subscription**: sending a client only the rows currently on its screen.
+- **Register before snapshot**: start collecting a client's changes before reading its snapshot, so nothing falls between the two.
+- **Allow-list**: naming exactly what may pass, so anything new stays blocked until someone adds it.
+- **`permessage-deflate`**: WebSocket compression, which saves bandwidth but costs CPU per frame.
+- **Close code 1008**: the WebSocket code for "policy violation", used here to refuse an unknown token.
 
 ### Simulation
 - **Random walk**: a series where each value is the previous one plus a random step, a simple stand-in for price movement.

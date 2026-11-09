@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade blotter</title>
+<style>
+  :root { --bg:#10141a; --panel:#1a2029; --line:#2b3440; --text:#dfe6ee; --dim:#8a97a6; --up:#3ecf8e; --down:#ff6b6b; --warn:#f5b84b; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--text); font:13px/1.4 system-ui,sans-serif; }
+  header { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:baseline; margin-bottom:12px; }
+  h1 { margin:0; font-size:18px; }
+  #status, #event, #count { color:var(--dim); font-variant-numeric:tabular-nums; }
+  #event { min-height:18px; margin-bottom:8px; }
+  #panel { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px; margin-bottom:12px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:10px; }
+  .card.breach { border-color:var(--down); }
+  .card b { display:block; }
+  .card small { color:var(--dim); font-variant-numeric:tabular-nums; }
+  .bar { height:6px; background:var(--line); border-radius:3px; margin:6px 0; overflow:hidden; }
+  .bar i { display:block; height:100%; background:var(--up); }
+  .breach .bar i { background:var(--down); }
+  .tag { color:var(--down); font-weight:700; }
+  .controls { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; margin-bottom:8px; }
+  input[type=search], button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:5px 8px; font:inherit; }
+  button { cursor:pointer; }
+  .scroll { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th, td { padding:4px 8px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; }
+  th { color:var(--dim); cursor:pointer; user-select:none; }
+  .num { text-align:right; }
+  .up { color:var(--up); } .down { color:var(--down); } .warn { color:var(--warn); } .dim { color:var(--dim); }
+</style>
+</head>
+<body>
+<header><h1 id="title">Connecting…</h1><span id="status"></span></header>
+<section id="panel"></section>
+<div class="controls">
+  <input id="filter" type="search" placeholder="Filter by any text" aria-label="Filter trades">
+  <label><input id="hide" type="checkbox" checked> Hide cancelled</label>
+  <label><input id="auto" type="checkbox" checked> Auto-resync</label>
+  <button id="drop">Drop next delta</button>
+  <span id="count"></span>
+</div>
+<div id="event"></div>
+<div class="scroll"><table><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table></div>
+
+<script>
+const MAX_ROWS = 100;  // only draw this many; the rest stay in memory
+const token = new URLSearchParams(location.search).get("token") || "desk";
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const money = v => v == null ? "" : v.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+const whole = v => v == null ? "" : Math.round(v).toLocaleString("en-US");
+const signed = v => `<span class="${v > 0 ? "up" : v < 0 ? "down" : ""}">${money(v)}</span>`;
+
+function riskState(t) {
+  if (t.status === "CANCELLED") return '<span class="dim">closed</span>';
+  if (t.risk == null) return '<span class="warn">STALE: no report yet</span>';
+  if (!t.risk_stale) return "fresh";
+  return `<span class="warn">STALE: ${t.risk_silent ? "reports stopped" : "amended"}</span>`;
+}
+
+const SHARED_START = [
+  {key:"trade_id", label:"Trade"}, {key:"version", label:"Ver", num:true}, {key:"status", label:"Status"},
+  {key:"instrument_name", label:"Instrument"},
+];
+const SHARED_PRICES = [
+  {key:"side", label:"Side"}, {key:"qty", label:"Qty", num:true, show:whole},
+  {key:"trade_price", label:"Trade px", num:true, show:money}, {key:"live_price", label:"Live px", num:true, show:money},
+];
+const COLUMNS = {
+  desk: [...SHARED_START, {key:"counterparty_name", label:"Counterparty"}, {key:"book_id", label:"Book"}, ...SHARED_PRICES,
+         {key:"mtm", label:"MTM P&L", num:true, show:signed}, {key:"risk", label:"Risk", num:true, show:money},
+         {key:"risk_stale", label:"Risk state", html:riskState}],
+  fund: [...SHARED_START, ...SHARED_PRICES, {key:"mtm", label:"Your P&L", num:true, show:signed}],
+};
+
+let trades = new Map(), counterparties = new Map();
+let scope = null, columns = [], sort = {key:"mtm", dir:-1, abs:true};
+let lastSeq = 0, resyncing = false, dropNext = false, dirty = false;
+let resyncs = 0, bytes = 0, age = null, state = "connecting", stopped = false;
+
+function apply(frame) {
+  frame.trades.forEach(t => trades.set(t.trade_id, t));
+  frame.counterparties.forEach(c => counterparties.set(c.counterparty_id, c));
+  dirty = true;
+}
+
+function setupScope(name) {
+  if (name === scope) return;
+  scope = name;
+  columns = name === "desk" ? COLUMNS.desk : COLUMNS.fund;
+  $("title").textContent = name === "desk" ? "Desk blotter" : `Client view: ${name}`;
+  $("head").innerHTML = columns.map((c, i) => `<th data-i="${i}" class="${c.num ? "num" : ""}">${esc(c.label)}</th>`).join("");
+}
+
+function onFrame(ws, event) {
+  const frame = JSON.parse(event.data);
+  bytes += event.data.length;
+  if (frame.type === "snapshot") {
+    setupScope(frame.scope);
+    trades = new Map(); counterparties = new Map();
+    apply(frame);
+    lastSeq = frame.seq;
+    if (resyncing) { resyncs++; $("event").textContent = `Resync finished at seq ${frame.seq}, screen rebuilt.`; }
+    resyncing = false;
+    return;
+  }
+  if (dropNext) { dropNext = false; $("event").textContent = `Dropped delta seq ${frame.seq} on purpose.`; return; }
+  if (resyncing) return;  // the snapshot on its way replaces all of this
+  age = Date.now() - frame.kafka_ts;
+  if (frame.seq !== lastSeq + 1) {
+    $("event").textContent = `Gap: expected seq ${lastSeq + 1}, got ${frame.seq}.` + ($("auto").checked ? " Asking for a new snapshot…" : " Auto-resync is off, carrying on.");
+    if ($("auto").checked) { resyncing = true; ws.send("resync"); return; }
+  }
+  lastSeq = frame.seq;
+  apply(frame);
+}
+
+function connect() {
+  const ws = new WebSocket(`ws://${location.host}/ws?token=${encodeURIComponent(token)}`);
+  ws.onopen = () => { state = "live"; };
+  ws.onmessage = event => { onFrame(ws, event); ws.send("ack"); };  // ready for the next frame
+  ws.onclose = event => {
+    if (event.code === 1008) { stopped = true; state = "not allowed"; $("title").textContent = "Unknown token"; return; }
+    state = "reconnecting";  // a new connection starts again from a snapshot
+    resyncing = false;
+    setTimeout(connect, 1000);
+  };
+}
+
+function drawPanel() {
+  $("panel").innerHTML = [...counterparties.values()].sort((a, b) => b.exposure / b.credit_limit - a.exposure / a.credit_limit).map(c => {
+    const used = c.exposure / c.credit_limit * 100;
+    return `<div class="card ${c.breached ? "breach" : ""}"><b>${esc(c.counterparty_name)} ${c.breached ? '<span class="tag">LIMIT BREACH</span>' : ""}</b>
+      <div class="bar"><i style="width:${Math.min(used, 100)}%"></i></div>
+      <small>${whole(c.exposure)} of ${whole(c.credit_limit)} (${used.toFixed(1)}% used)</small></div>`;
+  }).join("");
+}
+
+function drawGrid() {
+  const text = $("filter").value.toLowerCase(), hide = $("hide").checked;
+  let rows = [...trades.values()].filter(t => !(hide && t.status === "CANCELLED"));
+  if (text) rows = rows.filter(t => Object.values(t).join(" ").toLowerCase().includes(text));
+  const value = t => { const v = t[sort.key]; return sort.abs ? Math.abs(v) : v; };
+  rows.sort((a, b) => { const x = value(a), y = value(b); return x < y ? -sort.dir : x > y ? sort.dir : 0; });
+  $("count").textContent = `Showing ${Math.min(rows.length, MAX_ROWS)} of ${rows.length.toLocaleString("en-US")}`;
+  $("body").innerHTML = rows.slice(0, MAX_ROWS).map(t => "<tr>" + columns.map(c => {
+    const content = c.html ? c.html(t) : c.show ? c.show(t[c.key]) : esc(t[c.key]);
+    return `<td class="${c.num ? "num" : ""}">${content}</td>`;
+  }).join("") + "</tr>").join("");
+}
+
+$("head").onclick = event => {
+  const i = event.target.dataset.i;
+  if (i === undefined) return;
+  const key = columns[i].key;
+  sort = {key, dir: sort.key === key ? -sort.dir : -1, abs:false};
+  dirty = true;
+};
+$("drop").onclick = () => { dropNext = true; };
+$("filter").oninput = $("hide").onchange = () => { dirty = true; };
+
+setInterval(() => {
+  if (dirty && scope) { dirty = false; drawPanel(); drawGrid(); }
+}, 500);
+setInterval(() => {
+  if (stopped) return;
+  $("status").textContent = `${state} · seq ${lastSeq} · ${(bytes / 1e6).toFixed(2)} MB/s · data age ${age == null ? "-" : (age / 1000).toFixed(1) + " s"} · resyncs ${resyncs}`;
+  bytes = 0;
+}, 1000);
+
+connect();
+</script>
+</body>
+</html>
