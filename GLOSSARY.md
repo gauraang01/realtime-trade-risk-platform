@@ -46,6 +46,7 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Credit exposure**: how much we could lose if a counterparty fails. In this project, simplified to the sum of `|quantity × live price|` across its live trades.
 - **Credit limit**: the maximum exposure the bank will accept to one counterparty.
 - **Limit breach**: exposure has gone above the limit. It can happen with no new trade, purely because prices moved.
+- **Valid-from date**: a business column saying when a reference value took effect, independent of when a system recorded it.
 
 ## Technical terms
 
@@ -160,10 +161,26 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Exactly-once (state)**: after a recovery, each record has affected Flink's state once. End-to-end exactly-once also needs a transactional or idempotent sink.
 - **Heartbeat timeout**: how long the JobManager waits to hear from a TaskManager before declaring it dead (50 s by default).
 - **Restart strategy**: what Flink does when a job fails. With checkpointing off, the default is not to restart.
+- **Enrichment**: adding descriptive fields to an event by joining it with reference data.
+- **Regular join**: a stream join that remembers both sides and re-emits results when either side changes.
+- **Temporal join**: a join that uses the version of a table that was valid at each event's time, and never revises the result.
+- **Versioned table**: a table with a primary key and an event-time column, so Flink can tell which version applied at a given moment.
+- **Lookup join**: a join that queries an external database for each event as it's processed. It keeps no state, but replaying gives today's answers.
+- **Broadcast state**: a DataStream pattern that gives every parallel task a full copy of a small reference table, so joins need no network shuffle.
+- **`STATE_TTL` hint**: a per-query setting that gives each side of a join its own state TTL. `0` means never expire.
+- **`ChangelogNormalize`**: the Flink operator that remembers each key's latest row, so an upsert source can produce `-U` retractions.
+- **`SinkUpsertMaterializer`**: an operator Flink adds before an upsert sink when it can't prove updates arrive in order. It keeps state per key. Shown as `SinkMaterializer` in the Flink UI.
+- **Statement set**: several `INSERT`s submitted as one job, which can share slots.
+- **`print` connector**: a sink that writes rows to the TaskManager's log, for experiments.
+- **`JDBC` connector**: Flink's connector for querying databases such as Postgres, used here for lookup joins.
 
 ### Time
 - **Event time**: when something actually happened, as opposed to when a system processed it.
 - **Trade time**: when a trade was first booked. Later amendments keep it unchanged.
+- **Processing time**: the clock of the machine handling a record. `PROCTIME()` in Flink SQL.
+- **Watermark**: a marker saying "no events older than this are still expected", which lets event-time operators make progress.
+- **Idle source**: a source sending nothing for a set time, which Flink then stops waiting for when working out watermarks.
+- **Capture time**: when CDC recorded a row, which isn't the same as when that row became valid in business terms.
 
 ### Simulation
 - **Random walk**: a series where each value is the previous one plus a random step, a simple stand-in for price movement.

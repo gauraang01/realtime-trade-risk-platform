@@ -77,6 +77,16 @@ docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/latest_trades.sql 2
 
 To test late and duplicate messages, run `.venv/bin/python simulators/break_versions.py`.
 
+The saved job in `flink/sql/enrich_trades.sql` adds instrument, counterparty and book details to each trade. Create its output topic once, then submit it after `latest_trades.sql`:
+
+```bash
+scripts/k kafka-topics --create --topic trades_enriched --partitions 3 --replication-factor 1 \
+  --config cleanup.policy=compact --config segment.ms=60000 --config min.cleanable.dirty.ratio=0.01
+docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/enrich_trades.sql 2>&1 | grep -E 'Job ID|ERROR'
+```
+
+To compare a regular join with a temporal join, submit `flink/sql/join_compare.sql`, follow `docker logs -f --tail 0 taskmanager`, and send trades with `.venv/bin/python simulators/test_trade.py` while changing a row in `counterparties`. It needs a free task slot.
+
 ## Architecture (target)
 
 ```

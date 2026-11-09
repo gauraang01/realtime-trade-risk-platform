@@ -45,7 +45,9 @@ CREATE TABLE trades_latest (
   'topic' = 'trades_latest',
   'properties.bootstrap.servers' = 'kafka:9092',
   'key.format' = 'raw',
-  'value.format' = 'json'
+  'value.format' = 'json',
+  -- Writes a plain number rather than 1.9E+2, which downstream readers might not parse.
+  'value.json.encode.decimal-as-plain-number' = 'true'
 );
 
 -- Cancelled trades are kept as rows on purpose. Filtering them out here would

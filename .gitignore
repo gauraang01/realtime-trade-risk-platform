@@ -9,5 +9,8 @@ __pycache__/
 # Docker volume data kept on disk
 data/
 
+# Personal interview notes
+INTERVIEW_QUESTIONS.md
+
 # macOS
 .DS_Store
