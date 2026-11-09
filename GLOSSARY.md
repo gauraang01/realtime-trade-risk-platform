@@ -17,6 +17,8 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Trade**: an agreement to exchange a quantity of an instrument at a price.
 - **Long / short**: long means you own it and gain when the price rises; short means you owe it and gain when the price falls.
 - **Position**: your net holding, summed across live trades (here, per book and instrument). +500 is long, -500 is short.
+- **Net quantity**: buys minus sells for a position. Positive is long, negative is short, zero is flat.
+- **Position cost**: the sum of `signed quantity × trade price`. Negative when the desk has taken in more cash than it paid. Position P&L is `net quantity × live price - cost`.
 - **Amendment**: a correction to an existing trade. It creates a new version that replaces the old one and does not add a second trade.
 - **Cancellation**: the trade is void and drops out of positions, P&L and exposure.
 - **Trade version**: a counter that goes up with each change to a trade, so systems can tell which state is newest.
@@ -30,6 +32,7 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **MTM P&L**: `signed quantity × (current price - trade price)`, from the desk's point of view.
 - **Unrealised P&L**: gain or loss on paper, because the position is still open.
 - **Realised P&L**: gain or loss locked in by closing the position.
+- **Slippage**: the gap between the price you expected and the price you actually traded at. Comparing a trade's price with the market price at that moment is a simple check of it.
 - **Flash P&L**: a fast, unverified estimate, available during or just after the trading day. This dashboard shows flash P&L.
 - **Official P&L**: the checked, signed-off number, usually produced the next day. It goes into the books and regulatory reports.
 - **Product control**: the finance team that verifies P&L independently of the traders.
@@ -171,7 +174,10 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **`ChangelogNormalize`**: the Flink operator that remembers each key's latest row, so an upsert source can produce `-U` retractions.
 - **`SinkUpsertMaterializer`**: an operator Flink adds before an upsert sink when it can't prove updates arrive in order. It keeps state per key. Shown as `SinkMaterializer` in the Flink UI.
 - **Statement set**: several `INSERT`s submitted as one job, which can share slots.
+- **Mini-batch**: operators buffer input for a short time and process only the final state per key. It conflates updates and merges an amend's retract and add, at the cost of a little latency.
+- **Sink buffer flush**: `sink.buffer-flush.*` on `upsert-kafka`, which holds messages briefly and writes only the newest per key. It removes most delete-then-insert tombstones.
 - **`print` connector**: a sink that writes rows to the TaskManager's log, for experiments.
+- **`blackhole` connector**: a sink that discards every row, used to measure a job's speed.
 - **`JDBC` connector**: Flink's connector for querying databases such as Postgres, used here for lookup joins.
 - **JobManager High Availability**: storing job definitions and a pointer to the latest checkpoint outside the JobManager, so a replacement can resume running jobs.
 

@@ -97,6 +97,19 @@ docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/candles.sql 2>&1 | 
 
 To test late data and a silent partition, create a `prices_test` topic with 3 partitions, start a windowed query that reads it from `latest-offset`, then run `.venv/bin/python simulators/break_time.py late` or `silent`.
 
+The saved jobs in `flink/sql/trade_mtm.sql` and `flink/sql/position_mtm.sql` value each trade and each position at the latest price, updating about once a second. Create their output topics once, then submit each job:
+
+```bash
+for t in trade_mtm position_mtm; do
+  scripts/k kafka-topics --create --topic $t --partitions 3 --replication-factor 1 \
+    --config cleanup.policy=compact --config segment.ms=60000 --config min.cleanable.dirty.ratio=0.01
+done
+docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/trade_mtm.sql 2>&1 | grep -A2 -E 'Job ID|ERROR'
+docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/position_mtm.sql 2>&1 | grep -A2 -E 'Job ID|ERROR'
+```
+
+Each saved job uses one of the four task slots. `flink/sql/fanout_demo.sql` measures the output of an unconflated price join, and `.venv/bin/python scripts/topic_rate.py <topic>` measures a topic's message rate.
+
 ## Architecture (target)
 
 ```
