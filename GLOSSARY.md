@@ -44,6 +44,8 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Risk engine**: the system that calculates risk. In real banks it is usually slow and runs separately from the trading systems.
 - **As-of time**: the moment a calculated number was true.
 - **Risk stale**: a risk number that can no longer be trusted. In this project: the trade changed after risk was calculated, or the risk is older than 2 minutes.
+- **Risk run**: one pass of the risk engine over the whole book, with every result stamped with the same as-of time.
+- **`trade_version` stamp**: the trade version a risk result was calculated from, compared with the current version to detect stale risk.
 
 ### Credit
 - **Credit exposure**: how much we could lose if a counterparty fails. In this project, simplified to the sum of `|quantity × live price|` across its live trades.
@@ -176,6 +178,8 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Statement set**: several `INSERT`s submitted as one job, which can share slots.
 - **Mini-batch**: operators buffer input for a short time and process only the final state per key. It conflates updates and merges an amend's retract and add, at the cost of a little latency.
 - **Sink buffer flush**: `sink.buffer-flush.*` on `upsert-kafka`, which holds messages briefly and writes only the newest per key. It removes most delete-then-insert tombstones.
+- **Tombstone block**: when a flush falls between one tick's deletes and inserts, every trade on that instrument briefly reads as deleted.
+- **Version staleness vs age staleness**: the first asks "has the trade changed since this result?", the second "how old is this result?". Neither check can replace the other.
 - **`print` connector**: a sink that writes rows to the TaskManager's log, for experiments.
 - **`blackhole` connector**: a sink that discards every row, used to measure a job's speed.
 - **`JDBC` connector**: Flink's connector for querying databases such as Postgres, used here for lookup joins.

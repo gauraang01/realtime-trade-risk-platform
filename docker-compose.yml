@@ -141,12 +141,12 @@ services:
     environment:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: jobmanager
-        taskmanager.memory.process.size: 1536m
-        taskmanager.numberOfTaskSlots: 4
+        taskmanager.memory.process.size: 2048m
+        taskmanager.numberOfTaskSlots: 6
         execution.checkpointing.dir: file:///opt/flink/checkpoints
     volumes:
       - flink-checkpoints:/opt/flink/checkpoints
-    mem_limit: 1792m
+    mem_limit: 2304m
     depends_on:
       - jobmanager
 

@@ -108,7 +108,20 @@ docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/trade_mtm.sql 2>&1 
 docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/position_mtm.sql 2>&1 | grep -A2 -E 'Job ID|ERROR'
 ```
 
-Each saved job uses one of the four task slots. `flink/sql/fanout_demo.sql` measures the output of an unconflated price join, and `.venv/bin/python scripts/topic_rate.py <topic>` measures a topic's message rate.
+`simulators/risk_engine.py` reports risk for every live trade every 30 seconds, and `flink/sql/trade_view.sql` attaches the latest report to each trade with a staleness flag. Create the two topics once, start the engine, then submit the job:
+
+```bash
+for t in risk_results trade_view; do
+  scripts/k kafka-topics --create --topic $t --partitions 3 --replication-factor 1 \
+    --config cleanup.policy=compact --config segment.ms=60000 --config min.cleanable.dirty.ratio=0.01
+done
+.venv/bin/python simulators/risk_engine.py
+docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/trade_view.sql 2>&1 | grep -A2 -E 'Job ID|ERROR'
+```
+
+Run `.venv/bin/python scripts/stale_check.py` to see how many trades have stale risk and how old the latest reports are.
+
+Each saved job uses one of the six task slots. `flink/sql/fanout_demo.sql` measures the output of an unconflated price join, and `.venv/bin/python scripts/topic_rate.py <topic>` measures a topic's message rate.
 
 ## Architecture (target)
 
