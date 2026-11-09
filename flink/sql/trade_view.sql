@@ -51,6 +51,19 @@ CREATE TABLE risk_results (
   'value.format' = 'json'
 );
 
+-- One row per trade whose reports stopped. See risk_silent.sql.
+CREATE TABLE risk_silent (
+  trade_id STRING,
+  last_as_of BIGINT,
+  PRIMARY KEY (trade_id) NOT ENFORCED
+) WITH (
+  'connector' = 'upsert-kafka',
+  'topic' = 'risk_silent',
+  'properties.bootstrap.servers' = 'kafka:9092',
+  'key.format' = 'raw',
+  'value.format' = 'json'
+);
+
 CREATE TABLE trade_view (
   trade_id STRING,
   version INT,
@@ -70,6 +83,7 @@ CREATE TABLE trade_view (
   risk_as_of BIGINT,
   risk_trade_version INT,
   risk_stale BOOLEAN,
+  risk_silent BOOLEAN,
   PRIMARY KEY (trade_id) NOT ENFORCED
 ) WITH (
   'connector' = 'upsert-kafka',
@@ -87,6 +101,8 @@ CREATE TABLE trade_view (
 -- `<` and not `<>`: a report can overtake its trade through the pipeline,
 -- and a report based on a newer version is not stale.
 -- A cancelled trade has no risk, so its last report is shown as zero and never stale.
+-- Silence only counts if it came after the latest report: a newer report clears it,
+-- with no extra message needed.
 INSERT INTO trade_view
 SELECT m.trade_id, m.version, m.status,
        m.instrument_id, m.instrument_name,
@@ -99,7 +115,10 @@ SELECT m.trade_id, m.version, m.status,
        r.trade_version,
        CASE WHEN m.status = 'CANCELLED' THEN FALSE
             WHEN r.trade_version IS NULL THEN TRUE
-            ELSE r.trade_version < m.version
-       END
+            WHEN r.trade_version < m.version THEN TRUE
+            ELSE COALESCE(s.last_as_of >= r.as_of, FALSE)
+       END,
+       m.status <> 'CANCELLED' AND COALESCE(s.last_as_of >= r.as_of, FALSE)
 FROM trade_mtm m
-LEFT JOIN risk_results r ON m.trade_id = r.trade_id;
+LEFT JOIN risk_results r ON m.trade_id = r.trade_id
+LEFT JOIN risk_silent s ON m.trade_id = s.trade_id;

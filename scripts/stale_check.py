@@ -42,11 +42,15 @@ def main() -> None:
     live = [r for r in rows.values() if r["status"] != "CANCELLED"]
     stale = [r for r in live if r["risk_stale"]]
     no_risk = [r for r in stale if r["risk_trade_version"] is None]
-    amended = [r for r in stale if r["risk_trade_version"] is not None]
+    amended = [r for r in stale if r["risk_trade_version"] is not None and r["risk_trade_version"] < r["version"]]
+    silent = [r for r in live if r.get("risk_silent")]  # rows from before this column have no value
     ages = [(now - r["risk_as_of"]) / 1000 for r in live if r["risk_as_of"] is not None]
 
     print(f"live trades: {len(live)}   cancelled: {len(rows) - len(live)}")
-    print(f"stale: {len(stale)}   no risk yet: {len(no_risk)}   amended since last report: {len(amended)}")
+    print(
+        f"stale: {len(stale)}   no risk yet: {len(no_risk)}   "
+        f"amended since last report: {len(amended)}   reports stopped: {len(silent)}"
+    )
     if ages:
         print(f"risk age in seconds: newest {min(ages):.0f}, oldest {max(ages):.0f}")
     for r in amended[:ROWS_TO_SHOW]:

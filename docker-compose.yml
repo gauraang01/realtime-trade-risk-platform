@@ -142,7 +142,7 @@ services:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: jobmanager
         taskmanager.memory.process.size: 2048m
-        taskmanager.numberOfTaskSlots: 6
+        taskmanager.numberOfTaskSlots: 8
         execution.checkpointing.dir: file:///opt/flink/checkpoints
     volumes:
       - flink-checkpoints:/opt/flink/checkpoints

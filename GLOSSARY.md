@@ -51,6 +51,8 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Credit exposure**: how much we could lose if a counterparty fails. In this project, simplified to the sum of `|quantity × live price|` across its live trades.
 - **Credit limit**: the maximum exposure the bank will accept to one counterparty.
 - **Limit breach**: exposure has gone above the limit. It can happen with no new trade, purely because prices moved.
+- **Pre-trade limit check**: a check that can block a trade before it is booked. It must be synchronous, unlike this project's after-the-fact alert.
+- **Post-trade monitoring**: watching exposure after trades are booked and alerting people, which allows a few seconds of delay.
 - **Valid-from date**: a business column saying when a reference value took effect, independent of when a system recorded it.
 
 ## Technical terms
@@ -200,6 +202,13 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Late event**: an event whose window has already closed. By default it is dropped without any error.
 - **Allowed lateness**: keeping a closed window's state for longer, so a late event can produce a corrected result.
 - **Per-partition watermark**: each partition tracks its own watermark, and the source reports the lowest of them.
+- **Session window**: a per-key window that stays open while events keep arriving and closes after a set gap of silence.
+- **Timer**: a callback that fires at a set time with no incoming event, the only way to react to something not happening.
+- **`KeyedProcessFunction`**: Flink's low-level API for per-key state and hand-registered timers, for logic SQL can't express.
+- **Debounce**: acting on a signal only after it has held steady for a while, so brief glitches are ignored.
+- **Level vs edge trigger**: a level trigger acts for as long as a condition holds; an edge trigger acts once, when it changes.
+- **`LAG`**: a SQL function that returns a column's value from the previous row for the same key.
+- **Aggregate before fan-out**: totalling slow-changing data first, so a fast-changing join touches a few rows instead of every record.
 
 ### Simulation
 - **Random walk**: a series where each value is the previous one plus a random step, a simple stand-in for price movement.

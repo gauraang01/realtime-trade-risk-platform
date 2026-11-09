@@ -121,7 +121,23 @@ docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/trade_view.sql 2>&1
 
 Run `.venv/bin/python scripts/stale_check.py` to see how many trades have stale risk and how old the latest reports are.
 
-Each saved job uses one of the six task slots. `flink/sql/fanout_demo.sql` measures the output of an unconflated price join, and `.venv/bin/python scripts/topic_rate.py <topic>` measures a topic's message rate.
+`flink/sql/risk_silent.sql` marks a trade when no risk report has arrived for 2 minutes, and `trade_view` shows that as stale. `flink/sql/counterparty_view.sql` compares each counterparty's exposure with its credit limit, and `flink/sql/alerts.sql` publishes one message when a counterparty goes over its limit and one when it comes back. Create the topics once, then submit the jobs:
+
+```bash
+for t in risk_silent counterparty_view; do
+  scripts/k kafka-topics --create --topic $t --partitions 3 --replication-factor 1 \
+    --config cleanup.policy=compact --config segment.ms=60000 --config min.cleanable.dirty.ratio=0.01
+done
+scripts/k kafka-topics --create --topic alerts --partitions 3 --replication-factor 1 \
+  --config cleanup.policy=delete --config retention.ms=604800000
+for j in risk_silent counterparty_view alerts; do
+  docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/$j.sql 2>&1 | grep -A2 -E 'Job ID|ERROR'
+done
+```
+
+Run `.venv/bin/python scripts/exposure_check.py` to see exposure against limits, and `scripts/k kafka-console-consumer --topic alerts` to follow alerts.
+
+Each saved job uses one of the eight task slots. `flink/sql/fanout_demo.sql` measures the output of an unconflated price join, and `.venv/bin/python scripts/topic_rate.py <topic>` measures a topic's message rate.
 
 ## Architecture (target)
 
