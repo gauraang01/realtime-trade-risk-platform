@@ -87,6 +87,16 @@ docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/enrich_trades.sql 2
 
 To compare a regular join with a temporal join, submit `flink/sql/join_compare.sql`, follow `docker logs -f --tail 0 taskmanager`, and send trades with `.venv/bin/python simulators/test_trade.py` while changing a row in `counterparties`. It needs a free task slot.
 
+The saved job in `flink/sql/candles.sql` builds 1-minute open/high/low/close candles per instrument. Create its output topic once, then submit the job:
+
+```bash
+scripts/k kafka-topics --create --topic candles_1m --partitions 3 --replication-factor 1 \
+  --config cleanup.policy=compact --config segment.ms=60000 --config min.cleanable.dirty.ratio=0.01
+docker exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/candles.sql 2>&1 | grep -E 'Job ID|ERROR'
+```
+
+To test late data and a silent partition, create a `prices_test` topic with 3 partitions, start a windowed query that reads it from `latest-offset`, then run `.venv/bin/python simulators/break_time.py late` or `silent`.
+
 ## Architecture (target)
 
 ```

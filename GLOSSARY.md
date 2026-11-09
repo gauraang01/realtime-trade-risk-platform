@@ -173,6 +173,7 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Statement set**: several `INSERT`s submitted as one job, which can share slots.
 - **`print` connector**: a sink that writes rows to the TaskManager's log, for experiments.
 - **`JDBC` connector**: Flink's connector for querying databases such as Postgres, used here for lookup joins.
+- **JobManager High Availability**: storing job definitions and a pointer to the latest checkpoint outside the JobManager, so a replacement can resume running jobs.
 
 ### Time
 - **Event time**: when something actually happened, as opposed to when a system processed it.
@@ -181,6 +182,14 @@ One line per term, in plain English. Added to at the end of every sprint.
 - **Watermark**: a marker saying "no events older than this are still expected", which lets event-time operators make progress.
 - **Idle source**: a source sending nothing for a set time, which Flink then stops waiting for when working out watermarks.
 - **Capture time**: when CDC recorded a row, which isn't the same as when that row became valid in business terms.
+- **Candle (OHLC)**: one bar on a price chart, summarising a time period with its open (first), high, low and close (last) prices.
+- **Tumbling window**: fixed-size, back-to-back time buckets that don't overlap, so each event lands in exactly one.
+- **Window table function (TVF)**: Flink SQL's way to assign rows to windows, such as `TUMBLE(...)`. It adds `window_start` and `window_end`.
+- **Watermark delay**: how far the watermark trails the newest event time seen. Longer catches more disorder but gives results later.
+- **Out-of-order event**: an event that arrives after one with a later timestamp. It still counts if its window is open.
+- **Late event**: an event whose window has already closed. By default it is dropped without any error.
+- **Allowed lateness**: keeping a closed window's state for longer, so a late event can produce a corrected result.
+- **Per-partition watermark**: each partition tracks its own watermark, and the source reports the lowest of them.
 
 ### Simulation
 - **Random walk**: a series where each value is the previous one plus a random step, a simple stand-in for price movement.
