@@ -1,6 +1,70 @@
 # Real-time trade & risk dashboard
 
-A teaching project: a toy bank trading desk's live trade blotter and counterparty credit panel, built locally with Docker Compose, one sprint at a time.
+A streaming platform for a bank trading desk's front office: live P&L on every trade, a risk number with a flag that says when it can't be trusted, and each hedge fund's credit exposure checked against its limit, all reaching a browser within seconds of the event. It's built from Kafka, Debezium, Flink SQL, ClickHouse, Redis and a FastAPI WebSocket gateway, and runs entirely on one laptop with Docker Compose in under 8 GB of memory.
+
+![A credit limit is cut in Postgres and the breach appears on the desk screen, followed by one alert](docs/images/limit-breach.gif)
+
+*A hedge fund's credit limit is cut in Postgres. The change travels through Debezium, Kafka and Flink, the card turns red about 2 seconds later, and exactly one alert is published.*
+
+**[▶ Watch the full demo (1:39)](docs/project-demo.mp4)**
+
+## What it does
+
+The business is a deliberately small one: a desk trading 10 stocks with 5 hedge funds across 3 books. Trades can be amended or cancelled, prices tick about 20 times a second, and a separate risk engine reports on every trade every 30 seconds.
+
+- **Live trade blotter.** Every trade with instrument and fund names, the live price, mark-to-market P&L, and the latest risk number.
+- **Risk you can trust, or a flag saying you can't.** Each risk report is stamped with the trade version it was computed on. A trade amended after its report shows `STALE: amended`, and a trade whose reports stop arriving shows `STALE: reports stopped`.
+- **Credit limits.** Each fund's exposure against its limit, updated on every tick. A breach must last a full 5-second window before it alerts, and only a change of state publishes an alert.
+- **Two views of the same data.** The desk sees everything. A fund's login sees only its own trades, with side and P&L flipped to its point of view, filtered on the server.
+- **Updates you can't silently miss.** Every update to a screen is numbered. A gap triggers a fresh snapshot, so a lost message can't leave a wrong number on screen.
+
+The numbers are simplified on purpose: risk is a toy one-day VaR per trade, and exposure is gross with no netting. Real VaR is portfolio-level and not additive.
+
+### Screens
+
+**Desk blotter and credit panel.** One fund is over its limit and four are inside theirs:
+
+![Desk blotter with credit panel](docs/images/desk-blotter.png)
+
+**Risk staleness on amended trades.** Some reports were computed on an older version, and some trades have no report yet:
+
+![Amended trades with stale and fresh risk](docs/images/risk-staleness.png)
+
+**A hedge fund's own view.** Only its trades, with P&L from its side:
+
+![Fund view](docs/images/fund-view.png)
+
+**Eight Flink SQL jobs running continuously:**
+
+![Flink jobs](docs/images/flink-jobs.png)
+
+## Architecture
+
+![Architecture: sources, Kafka input topics, Flink jobs, Kafka view topics, serving stores, live screens](docs/images/architecture.png)
+
+Data passes through Kafka twice: once as raw facts (trades, prices, risk reports and reference data captured from Postgres), and once as finished views with one current row per trade or per fund. Flink SQL turns the first into the second. Redis holds the latest snapshot for new screens, ClickHouse holds history for ad-hoc and point-in-time queries, and the gateway sends each browser a snapshot followed by numbered changes.
+
+### Design choices worth a look
+
+| Choice | Why |
+|---|---|
+| Kafka is the only source of truth for moving data | Redis and ClickHouse can be rebuilt from the topics at any time. Redis rebuilds about 13,800 trades in around 10 seconds. |
+| The highest trade version wins, not the latest arrival | Late or duplicated amendments can't bring back an old version of a trade. |
+| Trust is a data field | Risk reports carry `trade_version` and `as_of`, so staleness is decided on the row itself. A processing-time session window catches reports that have stopped arriving. |
+| Shrink the data before it multiplies | One price tick revalues every trade in that stock. Updates are collapsed once a second, and exposure is totalled per fund and stock before it meets a price. |
+| Snapshot plus numbered deltas | A client registers for changes before reading its snapshot, so nothing falls in between. Each client's updates are collapsed separately and paced by its acknowledgements, so a slow browser can't hold up the others. |
+| Alerts are edge-triggered | An append-only topic records `BREACH` and `OK` once per real change. A brief spike doesn't fire an alert. |
+
+### Stack
+
+| Layer | Technology |
+|---|---|
+| Reference data and change capture | Postgres 17, Debezium 3.6 |
+| Event log | Apache Kafka 4.3 (KRaft), compacted and append-only topics |
+| Stream processing | Apache Flink 2.2, SQL only, 8 jobs with checkpoints |
+| Serving | ClickHouse 26.8 (Kafka engine, `ReplacingMergeTree`), Redis 8.2 |
+| Gateway and screens | Python, FastAPI, WebSockets, plain HTML and JavaScript |
+| Simulators | Python with `confluent-kafka` |
 
 ## Running it
 
@@ -194,17 +258,6 @@ To test the protocol without a browser, and compare the result with a fresh snap
 ```
 
 The first is a normal client, the second loses a frame and resyncs, and the third acts like a slow client. The "Drop next delta" button on the page does the same as the second.
-
-## Architecture (target)
-
-```
-Postgres ─ Debezium ─┐ reference data
-                     ▼
-Simulators ──────► KAFKA ──► FLINK ──► KAFKA ─┬─► ClickHouse  (history)
-trades, prices,    inputs    logic    outputs ├─► Redis       (latest snapshot)
-risk_results                                  └─► FastAPI ──► Browser grid
-                                                  (snapshot from Redis, changes from Kafka)
-```
 
 ## Repo layout
 
