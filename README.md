@@ -2,11 +2,9 @@
 
 A streaming platform for a bank trading desk's front office: live P&L on every trade, a risk number with a flag that says when it can't be trusted, and each hedge fund's credit exposure checked against its limit, all reaching a browser within seconds of the event. It's built from Kafka, Debezium, Flink SQL, ClickHouse, Redis and a FastAPI WebSocket gateway, and runs entirely on one laptop with Docker Compose in under 8 GB of memory.
 
-![A credit limit is cut in Postgres and the breach appears on the desk screen, followed by one alert](docs/images/limit-breach.gif)
+https://github.com/user-attachments/assets/1edc2c9a-8716-480d-9805-2744ed74c33a
 
-*A hedge fund's credit limit is cut in Postgres. The change travels through Debezium, Kafka and Flink, the card turns red about 2 seconds later, and exactly one alert is published.*
-
-**[▶ Watch the full demo (1:39)](docs/project-demo.mp4)**
+*The full demo (1:39): the running stack, the live blotter, a deliberately dropped update being repaired, stale risk on amended trades, and a credit limit cut in Postgres that reaches the screen about 2 seconds later as one alert.*
 
 ## What it does
 
